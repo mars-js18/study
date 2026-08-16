@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="es" class="dark h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>StudyFlow PWA - Sistema de Estudio Autodidacta</title>
+  <meta name="description" content="Ecosistema de alto rendimiento para estudiantes autodidactas con Syllabus, Time-Blocking, Pomodoro, Audio Lab, SRS y Mapa de Calor de Consistencia." />
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#090d16" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            dark: {
+              950: '#060911',
+              900: '#0b0f19',
+              850: '#111726',
+              800: '#172033',
+              700: '#232f48',
+            },
+            accent: {
+              emerald: '#10b981',
+              indigo: '#6366f1',
+              cyan: '#06b6d4',
+              violet: '#8b5cf6',
+              rose: '#f43f5e',
+              amber: '#f59e0b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.8); }
+
+    /* Glassmorphism utilities */
+    .glass-card {
+      background: rgba(17, 23, 38, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-hover {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card-hover:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px 0 rgba(99, 102, 241, 0.1);
+    }
+
+    /* Radial Progress */
+    .timer-svg circle {
+      transition: stroke-dashoffset 0.5s ease;
+    }
+
+    /* Heatmap cell animation */
+    .heatmap-cell {
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .heatmap-cell:hover {
+      transform: scale(1.3);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body class="bg-dark-950 text-slate-100 font-sans h-full min-h-screen flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+
+  <!-- APP CONTAINER -->
+  <div id="app" class="flex flex-col md:flex-row h-full min-h-screen overflow-hidden">
+
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="hidden md:flex md:w-64 bg-dark-900 border-r border-slate-800/80 flex-col shrink-0 z-30">
+      
+      <!-- Brand Header -->
+      <div class="p-4 flex items-center justify-between border-b border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-emerald-500 p-0.5 shadow-lg shadow-indigo-500/20">
+            <div class="w-full h-full bg-dark-950 rounded-[10px] flex items-center justify-center">
+              <i data-lucide="zap" class="w-5 h-5 text-indigo-400"></i>
+            </div>
+          </div>
+          <div>
+            <h1 class="font-display font-bold text-lg leading-none bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-300">StudyFlow</h1>
+            <span class="text-[10px] font-medium text-emerald-400 tracking-wider uppercase">PWA Autodidacta</span>
+          </div>
+        </div>
+
+        <!-- PWA Install Button -->
+        <button id="btn-pwa-install" class="hidden text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded-md flex items-center gap-1 transition-all" title="Instalar App">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i> Instalar
+        </button>
+      </div>
+
+      <!-- Energy Selector Badge (Anti-Burnout) -->
+      <div class="p-3 bg-dark-850/60 border-b border-slate-800/50">
+        <div class="text-[11px] font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+          <span>NIVEL DE ENERGÍA HOY</span>
+          <i data-lucide="heart-pulse" class="w-3.5 h-3.5 text-rose-400"></i>
+        </div>
+        <div class="grid grid-cols-3 gap-1 bg-dark-950 p-1 rounded-lg border border-slate-800/80">
+          <button data-energy="high" class="energy-btn px-2 py-1.5 rounded-md text-xs font-medium flex flex-col items-center gap-0.5 transition-all text-slate-400 hover:text-white" title="Energía Alta: Estudio denso y temas complejos">
+            <span class="text-amber-400 text-sm">⚡</span>
+            <span class="text-[10px]">Alta</span>
+          </button>
+          <button data-energy="medium" class="energy-btn px-2 py-1.5 rounded-md text-xs font-medium flex flex-col items-center gap-0.5 transition-all text-slate-400 hover:text-white" title="Energía Media: Ritmo normal de estudio">
+            <span class="text-emerald-400 text-sm">🔋</span>
+            <span class="text-[10px]">Media</span>
+          </button>
+          <button data-energy="low" class="energy-btn px-2 py-1.5 rounded-md text-xs font-medium flex flex-col items-center gap-0.5 transition-all text-slate-400 hover:text-white" title="Energía Baja: Repasos suaves, SRS y videos">
+            <span class="text-indigo-400 text-sm">🪫</span>
+            <span class="text-[10px]">Baja</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="p-2 space-y-1 flex-1 overflow-y-auto">
+        <button data-tab="dashboard" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-indigo-400 bg-indigo-500/10 border border-indigo-500/20">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Dashboard & Racha</span>
+        </button>
+
+        <button data-tab="syllabus" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          <span>Syllabus & Materias</span>
+          <span id="badge-subject-count" class="ml-auto text-[10px] bg-slate-800 px-1.5 py-0.5 rounded-full font-bold text-slate-400">0</span>
+        </button>
+
+        <button data-tab="inbox" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+          <i data-lucide="inbox" class="w-4 h-4"></i>
+          <span>Inbox de Recursos</span>
+          <span id="badge-inbox-count" class="ml-auto text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">0</span>
+        </button>
+
+        <button data-tab="planner" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+          <i data-lucide="calendar" class="w-4 h-4"></i>
+          <span>Time-Blocking</span>
+        </button>
+
+        <button data-tab="pomodoro" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+          <i data-lucide="timer" class="w-4 h-4"></i>
+          <span>Pomodoro & Audio</span>
+          <span id="active-pomo-dot" class="ml-auto w-2 h-2 rounded-full bg-slate-600"></span>
+        </button>
+
+        <button data-tab="srs" class="nav-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
+          <i data-lucide="repeat" class="w-4 h-4"></i>
+          <span>Repaso Espaciado (SRS)</span>
+          <span id="badge-srs-due" class="ml-auto text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-full font-bold">0</span>
+        </button>
+      </nav>
+
+      <!-- Bottom Widget (Streak & Backup) -->
+      <div class="p-3 border-t border-slate-800/60 bg-dark-950/40 space-y-2">
+        <div class="flex items-center justify-between bg-dark-850 p-2.5 rounded-xl border border-slate-800/80">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🔥</span>
+            <div>
+              <div class="text-[10px] text-slate-400 font-semibold uppercase">Racha Actual</div>
+              <div id="sidebar-streak" class="font-display font-extrabold text-sm text-amber-400">0 Días</div>
+            </div>
+          </div>
+          <button id="btn-open-backup" class="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 transition-all" title="Copia de Seguridad Backup JSON">
+            <i data-lucide="database" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+
+    <!-- MOBILE OVERLAY DRAWER (MENU) -->
+    <div id="mobile-drawer" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md md:hidden hidden flex-col">
+      <div class="p-4 bg-dark-900 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="zap" class="w-5 h-5 text-indigo-400"></i>
+          <span class="font-display font-bold text-base text-white">Menú Principal</span>
+        </div>
+        <button id="btn-close-drawer" class="p-2 rounded-lg bg-slate-800 text-slate-300">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-4 overflow-y-auto flex-1 bg-dark-950">
+        <!-- Energy Selector Badge Mobile -->
+        <div class="p-3 bg-dark-850 rounded-xl border border-slate-800">
+          <div class="text-xs font-semibold text-slate-400 mb-2 flex items-center justify-between">
+            <span>NIVEL DE ENERGÍA HOY</span>
+            <i data-lucide="heart-pulse" class="w-4 h-4 text-rose-400"></i>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-energy="high" class="energy-btn p-2 rounded-lg text-xs font-medium flex flex-col items-center bg-dark-950 border border-slate-800 text-slate-300">
+              <span class="text-amber-400">⚡ High</span>
+            </button>
+            <button data-energy="medium" class="energy-btn p-2 rounded-lg text-xs font-medium flex flex-col items-center bg-dark-950 border border-slate-800 text-slate-300">
+              <span class="text-emerald-400">🔋 Med</span>
+            </button>
+            <button data-energy="low" class="energy-btn p-2 rounded-lg text-xs font-medium flex flex-col items-center bg-dark-950 border border-slate-800 text-slate-300">
+              <span class="text-indigo-400">🪫 Low</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <button data-tab="dashboard" class="nav-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/60">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 text-indigo-400"></i> Dashboard & Consistencia
+          </button>
+          <button data-tab="syllabus" class="nav-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/60">
+            <i data-lucide="book-open" class="w-5 h-5 text-emerald-400"></i> Syllabus & Materias
+          </button>
+          <button data-tab="inbox" class="nav-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/60">
+            <i data-lucide="inbox" class="w-5 h-5 text-amber-400"></i> Inbox de Recursos
+          </button>
+          <button data-tab="planner" class="nav-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/60">
+            <i data-lucide="calendar" class="w-5 h-5 text-cyan-400"></i> Time-Blocking Planner
+          </button>
+          <button data-tab="pomodoro" class="nav-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/60">
+            <i data-lucide="timer" class="w-5 h-5 text-rose-400"></i> Pomodoro & Audio Lab
+          </button>
+          <button data-tab="srs" class="nav-tab w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/60">
+            <i data-lucide="repeat" class="w-5 h-5 text-violet-400"></i> Repaso Espaciado (SRS)
+          </button>
+        </div>
+
+        <div class="pt-4">
+          <button id="btn-open-backup-mobile" class="w-full py-3 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2">
+            <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i> Copia de Seguridad JSON
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 flex flex-col overflow-y-auto bg-dark-950 pb-24 md:pb-6">
+
+      <!-- TOP BAR -->
+      <header class="h-14 border-b border-slate-800/80 bg-dark-900/80 backdrop-blur-md px-4 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Mobile Menu Toggle Button -->
+          <button id="btn-open-drawer" class="p-2 rounded-lg bg-slate-800 text-slate-300 md:hidden flex items-center justify-center">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <span id="page-title" class="font-display font-bold text-sm sm:text-base text-slate-100 flex items-center gap-2 truncate">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-indigo-400"></i>
+            Dashboard & Consistencia
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Active Timer Bar Badge -->
+          <div id="timer-status-pill" class="hidden items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-medium cursor-pointer" onclick="switchTab('pomodoro')">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="top-timer-display">25:00</span>
+          </div>
+
+          <!-- Quick Action Add Button -->
+          <button id="btn-quick-add" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition-all">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Nuevo Tema / Recurso</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- VIEW PANELS -->
+      <div class="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full flex-1">
+
+        <!-- ================= TAB 1: DASHBOARD & CONSISTENCY ================= -->
+        <section id="view-dashboard" class="space-y-6">
+          
+          <!-- Anti-Burnout Recommendation Banner -->
+          <div id="burnout-banner" class="glass-card rounded-2xl p-4 sm:p-5 border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-dark-850 to-dark-850 relative overflow-hidden">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+              <div class="flex items-start gap-3.5">
+                <div id="burnout-icon-bg" class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 text-2xl border border-amber-500/30">
+                  🔋
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="font-display font-bold text-base text-slate-100">Estado de Energía Actual: <span id="burnout-state-label" class="text-amber-400">Media</span></h2>
+                    <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full border border-slate-700 font-mono">Anti-Burnout Active</span>
+                  </div>
+                  <p id="burnout-advice" class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                    Energía balanceada. Ideal para avanzar 1 o 2 temas semanales, completar un bloque de tiempo de 25 min o resolver ejercicios de dificultad media.
+                  </p>
+                </div>
+              </div>
+              <div id="burnout-actions" class="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                <button onclick="switchTab('srs')" class="flex-1 sm:flex-none text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg border border-slate-700 transition-all flex items-center justify-center gap-1.5">
+                  <i data-lucide="repeat" class="w-3.5 h-3.5 text-indigo-400"></i> Repasar SRS
+                </button>
+                <button onclick="switchTab('pomodoro')" class="flex-1 sm:flex-none text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg font-medium shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5">
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i> Iniciar Pomodoro
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Stats Counter Grid -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="glass-card p-4 rounded-xl flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <i data-lucide="flame" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="text-[11px] font-semibold text-slate-400 uppercase">Racha de Estudio</div>
+                <div id="dash-streak" class="font-display font-extrabold text-xl text-white">0 Días</div>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <i data-lucide="clock" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="text-[11px] font-semibold text-slate-400 uppercase">Horas Estudiadas</div>
+                <div id="dash-total-hours" class="font-display font-extrabold text-xl text-white">0.0 hrs</div>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="text-[11px] font-semibold text-slate-400 uppercase">Temas Completados</div>
+                <div id="dash-completed-topics" class="font-display font-extrabold text-xl text-white">0 / 0</div>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-xl flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center shrink-0">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <div class="text-[11px] font-semibold text-slate-400 uppercase">Pendientes SRS Hoy</div>
+                <div id="dash-srs-due" class="font-display font-extrabold text-xl text-rose-300">0 Temas</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contribution Heatmap (GitHub Style) -->
+          <div class="glass-card rounded-2xl p-5 border-slate-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-400"></i>
+                <h3 class="font-display font-bold text-sm text-slate-200">Mapa de Calor de Consistencia (Año 2026)</h3>
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span>Menos</span>
+                <div class="w-2.5 h-2.5 rounded-sm bg-slate-800/80"></div>
+                <div class="w-2.5 h-2.5 rounded-sm bg-emerald-900/80"></div>
+                <div class="w-2.5 h-2.5 rounded-sm bg-emerald-700"></div>
+                <div class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></div>
+                <div class="w-2.5 h-2.5 rounded-sm bg-emerald-300 shadow-sm shadow-emerald-400"></div>
+                <span>Más</span>
+              </div>
+            </div>
+
+            <!-- Heatmap Container Scrollable -->
+            <div class="overflow-x-auto pb-2">
+              <div id="heatmap-grid" class="inline-grid grid-rows-7 grid-flow-col gap-1 min-w-[700px] pt-1">
+                <!-- Heatmap cells populated via app.js -->
+              </div>
+            </div>
+            <div id="heatmap-tooltip-info" class="text-xs text-slate-400 text-right h-4 font-mono">Pasa el cursor sobre un día para ver detalle</div>
+          </div>
+
+          <!-- Grid 2 Column: Due Today SRS & Subject Progress Cards -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Left: Due Today SRS Topics -->
+            <div class="glass-card rounded-2xl p-5 border-slate-800/80 flex flex-col">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800/60 mb-4">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="brain-circuit" class="w-4 h-4 text-rose-400"></i>
+                  <h3 class="font-display font-bold text-sm text-slate-200">Repasos Programados para Hoy</h3>
+                </div>
+                <button onclick="switchTab('srs')" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Ver todo →</button>
+              </div>
+
+              <div id="dash-srs-list" class="space-y-2 flex-1 overflow-y-auto max-h-72 pr-1">
+                <!-- Empty State or SRS Items -->
+              </div>
+            </div>
+
+            <!-- Right: Subject Progress Cards -->
+            <div class="glass-card rounded-2xl p-5 border-slate-800/80 flex flex-col">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800/60 mb-4">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="book-open" class="w-4 h-4 text-indigo-400"></i>
+                  <h3 class="font-display font-bold text-sm text-slate-200">Progreso de Materias</h3>
+                </div>
+                <button onclick="switchTab('syllabus')" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Gestionar →</button>
+              </div>
+
+              <div id="dash-subjects-list" class="space-y-3 flex-1 overflow-y-auto max-h-72 pr-1">
+                <!-- Subject progress bars -->
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ================= TAB 2: SYLLABUS & MATERIAS ================= -->
+        <section id="view-syllabus" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display font-bold text-xl text-white">Plan de Aprendizaje de Materias</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Estructura tus materias en bloques de 4, 6 o 12 semanas para evitar la sobrecarga cognitiva.</p>
+            </div>
+            <button id="btn-add-subject" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition-all">
+              <i data-lucide="folder-plus" class="w-4 h-4"></i> Crear Nueva Materia
+            </button>
+          </div>
+
+          <!-- Subject Cards Grid / Accordions -->
+          <div id="syllabus-container" class="space-y-6">
+            <!-- Dynamically populated subjects -->
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 3: INBOX DE RECURSOS ================= -->
+        <section id="view-inbox" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display font-bold text-xl text-white">Bandeja de Entrada de Recursos (Inbox)</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Captura rápida de videos, PDFs y notas. Clasifícalos para consumirlos según tu nivel de energía.</p>
+            </div>
+            <button id="btn-add-inbox" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition-all">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i> Capturar Recurso
+            </button>
+          </div>
+
+          <!-- Filter & Search Bar -->
+          <div class="glass-card p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 border-slate-800/80">
+            <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              <button data-filter-status="all" class="inbox-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Todos</button>
+              <button data-filter-status="pending" class="inbox-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800">Pendientes</button>
+              <button data-filter-status="studying" class="inbox-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800">Estudiando</button>
+              <button data-filter-status="assimilated" class="inbox-filter-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800">Asimilados</button>
+            </div>
+
+            <select id="inbox-subject-filter" class="bg-dark-850 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+              <option value="all">Todas las materias</option>
+            </select>
+          </div>
+
+          <!-- Inbox Items Grid -->
+          <div id="inbox-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Dynamic Inbox Cards -->
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 4: TIME-BLOCKING PLANNER ================= -->
+        <section id="view-planner" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display font-bold text-xl text-white">Planificador Diario Time-blocking</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Asigna bloques de tiempo específicos a tus temas. Elimina la parálisis de decisión sabiendo exactamente qué estudiar hoy.</p>
+            </div>
+            <button id="btn-add-timeblock" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition-all">
+              <i data-lucide="clock" class="w-4 h-4"></i> Crear Bloque de Tiempo
+            </button>
+          </div>
+
+          <!-- Date Navigation Bar -->
+          <div class="glass-card p-3 rounded-xl flex items-center justify-between border-slate-800/80">
+            <button id="planner-prev-day" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <div class="text-center">
+              <span id="planner-current-date-title" class="font-display font-bold text-sm text-slate-100">Hoy, 16 de Agosto</span>
+              <span id="planner-day-subtitle" class="block text-[11px] text-slate-400">0 Bloques programados</span>
+            </div>
+            <button id="planner-next-day" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- 24-Hour Timeline Grid -->
+          <div class="glass-card rounded-2xl p-4 border-slate-800/80 relative overflow-hidden">
+            <div id="planner-timeline" class="space-y-2 max-h-[600px] overflow-y-auto pr-2 relative">
+              <!-- Hours rows generated by app.js (06:00 to 23:00) -->
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 5: POMODORO & AUDIO LAB ================= -->
+        <section id="view-pomodoro" class="hidden space-y-6">
+          <div class="text-center max-w-xl mx-auto">
+            <h2 class="font-display font-bold text-2xl text-white">Pomodoro & Audio Lab Procedural</h2>
+            <p class="text-xs text-slate-400 mt-1">Sumergete en enfoque profundo con temporizador inteligente y sonido de ambiente generado nativamente con la Web Audio API.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Main Circular Timer Card (8 Cols) -->
+            <div class="lg:col-span-7 glass-card rounded-3xl p-6 sm:p-8 border-slate-800/80 flex flex-col items-center justify-center relative overflow-hidden">
+              
+              <!-- Subject Linkage Selector -->
+              <div class="w-full max-w-md mb-6">
+                <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1.5 text-center">VINCULAR SESIÓN A MATERIA / TEMA</label>
+                <select id="pomo-subject-select" class="w-full bg-dark-850 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500">
+                  <option value="none">-- Sesión General de Estudio --</option>
+                </select>
+              </div>
+
+              <!-- Radial Timer SVG -->
+              <div class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center my-2">
+                <svg class="w-full h-full transform -rotate-90 timer-svg" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="44" stroke="currentColor" stroke-width="4" class="text-slate-800" fill="transparent" />
+                  <circle id="pomo-progress-ring" cx="50" cy="50" r="44" stroke="currentColor" stroke-width="4" stroke-dasharray="276.46" stroke-dashoffset="0" stroke-linecap="round" class="text-indigo-500 transition-all duration-1000" fill="transparent" />
+                </svg>
+                
+                <div class="absolute flex flex-col items-center justify-center">
+                  <span id="pomo-timer-mode" class="text-xs font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20 mb-1">TRABAJO</span>
+                  <span id="pomo-timer-digits" class="font-display font-black text-5xl sm:text-6xl tracking-tight text-white font-mono">25:00</span>
+                  <span id="pomo-subtext" class="text-[11px] text-slate-400 mt-1">Listo para comenzar</span>
+                </div>
+              </div>
+
+              <!-- Preset Selectors -->
+              <div class="flex items-center gap-2 my-6">
+                <button data-pomo-work="25" data-pomo-break="5" class="pomo-preset-btn text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">25 / 5 min</button>
+                <button data-pomo-work="50" data-pomo-break="10" class="pomo-preset-btn text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white border border-slate-700">50 / 10 min</button>
+                <button data-pomo-work="15" data-pomo-break="3" class="pomo-preset-btn text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white border border-slate-700">15 / 3 min</button>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex items-center gap-4">
+                <button id="btn-pomo-reset" class="w-12 h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all border border-slate-700" title="Reiniciar">
+                  <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                </button>
+
+                <button id="btn-pomo-toggle" class="h-14 px-8 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-display font-bold text-lg flex items-center gap-3 shadow-xl shadow-indigo-600/30 transition-all">
+                  <i id="pomo-toggle-icon" data-lucide="play" class="w-6 h-6 fill-current"></i>
+                  <span id="pomo-toggle-text">Iniciar Enfoque</span>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- Audio Lab & Session Controls (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+              
+              <!-- Ambient Sound Generator (Web Audio API) -->
+              <div class="glass-card rounded-2xl p-5 border-slate-800/80 space-y-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="headphones" class="w-4 h-4 text-emerald-400"></i>
+                    <h3 class="font-display font-bold text-sm text-slate-200">Audio Lab Ambiental (Web Audio)</h3>
+                  </div>
+                  <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono">100% Offline Synth</span>
+                </div>
+
+                <div class="space-y-2">
+                  <label class="block text-[11px] font-semibold text-slate-400 uppercase">SELECCIONAR AMBIENTE</label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <button data-audio-type="none" class="audio-type-btn p-3 rounded-xl border text-xs font-medium flex items-center gap-2.5 bg-indigo-500/20 border-indigo-500/40 text-indigo-300">
+                      <i data-lucide="volume-x" class="w-4 h-4"></i> Silencio
+                    </button>
+                    <button data-audio-type="white" class="audio-type-btn p-3 rounded-xl border border-slate-800 bg-dark-850 text-slate-300 hover:bg-slate-800 text-xs font-medium flex items-center gap-2.5">
+                      <i data-lucide="waves" class="w-4 h-4 text-cyan-400"></i> Ruido Blanco
+                    </button>
+                    <button data-audio-type="rain" class="audio-type-btn p-3 rounded-xl border border-slate-800 bg-dark-850 text-slate-300 hover:bg-slate-800 text-xs font-medium flex items-center gap-2.5">
+                      <i data-lucide="cloud-rain" class="w-4 h-4 text-indigo-400"></i> Lluvia Suave
+                    </button>
+                    <button data-audio-type="cafe" class="audio-type-btn p-3 rounded-xl border border-slate-800 bg-dark-850 text-slate-300 hover:bg-slate-800 text-xs font-medium flex items-center gap-2.5">
+                      <i data-lucide="coffee" class="w-4 h-4 text-amber-400"></i> Cafetería
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Volume Slider -->
+                <div class="space-y-1.5 pt-2">
+                  <div class="flex justify-between text-xs text-slate-400">
+                    <span>Volumen Ambiente</span>
+                    <span id="audio-volume-text">50%</span>
+                  </div>
+                  <input id="audio-volume-slider" type="range" min="0" max="100" value="50" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                </div>
+
+                <!-- Alarm Sound Test -->
+                <div class="pt-2 border-t border-slate-800/60 flex items-center justify-between">
+                  <span class="text-xs text-slate-400">Prueba de Alarma Chime</span>
+                  <button id="btn-test-chime" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 transition-all">
+                    <i data-lucide="bell" class="w-3.5 h-3.5 text-amber-400"></i> Probar Tono
+                  </button>
+                </div>
+              </div>
+
+              <!-- Today's Pomodoro Stats -->
+              <div class="glass-card rounded-2xl p-5 border-slate-800/80 space-y-3">
+                <h3 class="font-display font-bold text-sm text-slate-200 flex items-center gap-2">
+                  <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-400"></i> Sesiones de Hoy
+                </h3>
+                <div id="pomo-today-log" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  <!-- Session list -->
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+
+        <!-- ================= TAB 6: REPASO ESPACIADO (SRS) ================= -->
+        <section id="view-srs" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display font-bold text-xl text-white">Sistema de Repaso Espaciado (SRS)</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Basado en la curva del olvido de Ebbinghaus. Evalúa tu retención para repasar en el momento matemático óptimo.</p>
+            </div>
+            <div class="text-right">
+              <span id="srs-due-count-hero" class="text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-xl inline-flex items-center gap-1.5">
+                <i data-lucide="alert-circle" class="w-4 h-4"></i> 0 Temas para repasar hoy
+              </span>
+            </div>
+          </div>
+
+          <!-- Active Recall Interactive Card Queue -->
+          <div id="srs-active-card-container" class="max-w-2xl mx-auto">
+            <!-- App.js renders active SRS topic card or clean state -->
+          </div>
+
+          <!-- All SRS Topics Schedule Table -->
+          <div class="glass-card rounded-2xl p-5 border-slate-800/80 space-y-4">
+            <h3 class="font-display font-bold text-sm text-slate-200 flex items-center gap-2">
+              <i data-lucide="list" class="w-4 h-4 text-indigo-400"></i> Cronograma Completo de Repasos
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-slate-400 font-semibold uppercase">
+                    <th class="py-2.5 px-3">Tema</th>
+                    <th class="py-2.5 px-3">Materia</th>
+                    <th class="py-2.5 px-3">Último Repaso</th>
+                    <th class="py-2.5 px-3">Próximo Repaso</th>
+                    <th class="py-2.5 px-3 text-right">Intervalo Actual</th>
+                  </tr>
+                </thead>
+                <tbody id="srs-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                  <!-- Rows generated by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- FIXED MOBILE BOTTOM NAVIGATION BAR -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-dark-900/95 backdrop-blur-xl border-t border-slate-800/90 px-1 py-1.5 flex justify-around items-center shadow-2xl">
+      <button data-tab="dashboard" class="nav-tab mobile-bottom-tab flex-1 flex flex-col items-center justify-center py-1 text-indigo-400 font-semibold transition-all">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        <span class="text-[10px] mt-0.5">Inicio</span>
+      </button>
+
+      <button data-tab="syllabus" class="nav-tab mobile-bottom-tab flex-1 flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="book-open" class="w-5 h-5"></i>
+        <span class="text-[10px] mt-0.5">Materias</span>
+      </button>
+
+      <button data-tab="inbox" class="nav-tab mobile-bottom-tab flex-1 flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="inbox" class="w-5 h-5"></i>
+        <span class="text-[10px] mt-0.5">Inbox</span>
+      </button>
+
+      <button data-tab="planner" class="nav-tab mobile-bottom-tab flex-1 flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="calendar" class="w-5 h-5"></i>
+        <span class="text-[10px] mt-0.5">Agenda</span>
+      </button>
+
+      <button data-tab="pomodoro" class="nav-tab mobile-bottom-tab flex-1 flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="timer" class="w-5 h-5"></i>
+        <span class="text-[10px] mt-0.5">Pomodoro</span>
+      </button>
+
+      <button data-tab="srs" class="nav-tab mobile-bottom-tab flex-1 flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="repeat" class="w-5 h-5"></i>
+        <span class="text-[10px] mt-0.5">SRS</span>
+      </button>
+    </nav>
+
+  </div>
+
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal: Crear Materia -->
+  <div id="modal-subject" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-2xl p-6 border-slate-700 max-w-md w-full space-y-4 relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="folder-plus" class="w-4 h-4 text-indigo-400"></i> Nueva Materia
+        </h3>
+        <button onclick="closeModal('modal-subject')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="form-subject" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre de la Materia</label>
+          <input type="text" id="subject-name" required placeholder="Ej. Inteligencia Artificial, Historia del Arte" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Descripción / Objetivo</label>
+          <textarea id="subject-desc" rows="2" placeholder="Breve meta o resumen de la materia..." class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Plan de Aprendizaje</label>
+            <select id="subject-weeks" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="4">4 Semanas (Intensivo)</option>
+              <option value="6" selected>6 Semanas (Estándar)</option>
+              <option value="12">12 Semanas (Profundo)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Color Distintivo</label>
+            <select id="subject-color" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="indigo">Indigo 🟣</option>
+              <option value="emerald">Emerald 🟢</option>
+              <option value="amber">Amber 🟡</option>
+              <option value="cyan">Cyan 🔵</option>
+              <option value="rose">Rose 🔴</option>
+              <option value="violet">Violet 🍇</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modal-subject')" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30">Guardar Materia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal: Crear Tema -->
+  <div id="modal-topic" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-2xl p-6 border-slate-700 max-w-md w-full space-y-4 relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="file-plus" class="w-4 h-4 text-emerald-400"></i> Agregar Nuevo Tema
+        </h3>
+        <button onclick="closeModal('modal-topic')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="form-topic" class="space-y-4">
+        <input type="hidden" id="topic-subject-id" />
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Semana del Plan</label>
+          <select id="topic-week-select" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Título del Tema</label>
+          <input type="text" id="topic-title" required placeholder="Ej. Redes Neuronales Convolucionales" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nivel de Densidad Cognitiva</label>
+          <select id="topic-energy-level" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <option value="high">Estudio Denso (Requiere Energía Alta ⚡)</option>
+            <option value="medium" selected>Estudio Medio (Energía Normal 🔋)</option>
+            <option value="low">Estudio Liviano / Lectura (Energía Baja 🪫)</option>
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modal-topic')" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30">Guardar Tema</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal: Crear Recurso (Inbox) -->
+  <div id="modal-inbox" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-2xl p-6 border-slate-700 max-w-md w-full space-y-4 relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-amber-400"></i> Capturar Recurso en Inbox
+        </h3>
+        <button onclick="closeModal('modal-inbox')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="form-inbox" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Materia Asociada</label>
+          <select id="inbox-subject-id" required class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <!-- Dynamic options -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Título / Nombre del Recurso</label>
+          <input type="text" id="inbox-title" required placeholder="Ej. Video explicativo de Transformers en PyTorch" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">URL / Enlace (Opcional)</label>
+          <input type="url" id="inbox-url" placeholder="https://youtube.com/watch?v=..." class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nota Rápida</label>
+          <textarea id="inbox-note" rows="2" placeholder="Ideas clave o por qué guardaste este recurso..." class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modal-inbox')" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30">Guardar Recurso</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal: Crear Bloque de Tiempo (Planner) -->
+  <div id="modal-timeblock" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-2xl p-6 border-slate-700 max-w-md w-full space-y-4 relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="clock" class="w-4 h-4 text-indigo-400"></i> Nuevo Bloque de Tiempo
+        </h3>
+        <button onclick="closeModal('modal-timeblock')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="form-timeblock" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Materia</label>
+          <select id="timeblock-subject-id" required class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <!-- Dynamic options -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Título del Bloque / Actividad</label>
+          <input type="text" id="timeblock-title" required placeholder="Ej. Lectura de Capítulo 3 y resumen" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Hora Inicio</label>
+            <select id="timeblock-start" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <!-- Hours options -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Hora Fin</label>
+            <select id="timeblock-end" class="w-full bg-dark-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <!-- Hours options -->
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modal-timeblock')" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-800">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30">Agendar Bloque</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Modal: Copia de Seguridad JSON (Import / Export) -->
+  <div id="modal-backup" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-2xl p-6 border-slate-700 max-w-lg w-full space-y-4 relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i> Copia de Seguridad JSON
+        </h3>
+        <button onclick="closeModal('modal-backup')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-300">
+        <p>Todos tus datos de estudio se guardan de forma privada en el almacenamiento local de tu navegador (`localStorage`).</p>
+        
+        <div class="p-4 rounded-xl bg-dark-850 border border-slate-800 space-y-2">
+          <h4 class="font-semibold text-white">1. Exportar Copia de Seguridad</h4>
+          <p class="text-[11px] text-slate-400">Descarga un archivo JSON con todo tu progreso, materias, SRS y racha.</p>
+          <button id="btn-export-json" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i> Exportar Datos (JSON)
+          </button>
+        </div>
+
+        <div class="p-4 rounded-xl bg-dark-850 border border-slate-800 space-y-2">
+          <h4 class="font-semibold text-white">2. Importar Copia de Seguridad</h4>
+          <p class="text-[11px] text-slate-400">Restaura un archivo JSON de respaldo previo.</p>
+          <input type="file" id="input-import-json" accept=".json" class="hidden" />
+          <button id="btn-import-json" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i data-lucide="upload" class="w-4 h-4"></i> Cargar Archivo Backup (.json)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- APP LOGIC -->
+  <script src="app.js"></script>
+</body>
+</html>
